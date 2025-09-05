@@ -4,5 +4,9 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "nicegui>=2.23.3",
+    "pdfminer-six>=20250506",
     "pillow>=11.3.0",
 ]
+
+
+

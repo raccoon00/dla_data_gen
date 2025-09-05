@@ -1,81 +1,11 @@
-import os
-import subprocess
-import shutil
 from PIL import Image
 from typing import Optional
 from pathlib import Path
 from nicegui import ui, app
 from nicegui.events import MouseEventArguments, KeyEventArguments
 
-
-def get_env_var(var, get_path=False):
-    env_var = os.getenv(var)
-    if env_var is None:
-        raise Exception(f"Environment variable {var} is not configured.")
-
-    if get_path:
-        path = Path(env_var)
-        if not path.exists():
-            raise Exception(f"Path {env_var} configured in {var} does not exists")
-        return path
-    else:
-        return env_var
-
-
-def create_imagemagick_command(
-    src: Path,
-    dst: Path,
-    page: Optional[int] = None,
-    res_ext: str = "png",
-) -> (Path, str):
-    """ """
-
-    page = "" if page is None else f"[{page}]"
-    fname = src.stem
-    dst = dst / (fname + page + "." + res_ext)
-    command = ["magick", str(src.absolute()) + page, str(dst)]
-
-    return dst, command
-
-
-def imagemagick_render_image(path: Path, dst, page: int) -> Path:
-    dst, command = create_imagemagick_command(path, dst, page)
-    res = subprocess.run(command)
-    if res.returncode != 0:
-        raise Exception(
-            f"""imagemagick command failed
-stdout: {res.stdout}
-stderr: {res.stderr}
-command: {command}""",
-        )
-    return dst
-
-
-PDF_PATH = get_env_var("DLA_GEN_DOCS_PATH", get_path=True)
-OUTPUT_PATH = get_env_var("DLA_GEN_OUTPUT_PATH", get_path=True)
-IMAGE_CACHE: Path = OUTPUT_PATH / "cache"
-IMAGE_CACHE.mkdir(parents=False, exist_ok=True)
-
-SUPPORTED_FILE_EXT = ["pdf", "djvu"]
-RENDER_BACKENDS = {
-    "imagemagic": {
-        "available": shutil.which("magick") is not None,
-        "func": imagemagick_render_image,
-    }
-}
-
-RENDER_WIDTH = 1920
-RENDER_HEIGHT = 1920
-
-
-def render_image(path: Path, page: int) -> Path:
-    for backend, prop in RENDER_BACKENDS.items():
-        if prop["available"]:
-            return prop["func"](path, IMAGE_CACHE, page)
-    raise Exception(
-        "Cannot render image. No backend is available."
-        f"Available backends: {[list(RENDER_BACKENDS.keys())]}"
-    )
+from backends.doc_ops import render_image, SUPPORTED_FILE_EXT
+from config import PDF_PATH, RENDER_HEIGHT, RENDER_WIDTH
 
 
 class State:
