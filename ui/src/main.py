@@ -51,9 +51,9 @@ command: {command}""",
     return dst
 
 
-PDF_PATH = get_env_var("CHESS_BOOKS_PATH", get_path=True)
-IMAGE_OUTPUT_PATH = get_env_var("IMAGE_OUTPUT_PATH", get_path=True)
-IMAGE_CACHE: Path = IMAGE_OUTPUT_PATH / "cache"
+PDF_PATH = get_env_var("DLA_GEN_CHESS_BOOKS_PATH", get_path=True)
+OUTPUT_PATH = get_env_var("DLA_GEN_OUTPUT_PATH", get_path=True)
+IMAGE_CACHE: Path = OUTPUT_PATH / "cache"
 IMAGE_CACHE.mkdir(parents=False, exist_ok=True)
 
 SUPPORTED_FILE_EXT = ["pdf", "djvu"]
