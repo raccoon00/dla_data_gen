@@ -23,10 +23,13 @@ class State:
         self._image_zoom: float = None
 
         self._page_num: ui.number = None
+        self._pagination: ui.pagination = None
 
     def update_page_set(self):
         self._page_num.max = self._doc_len
         self._page_num.update()
+        self._pagination.max = self._doc_len
+        self._pagination.update()
 
     def set_interactive_image(self, image):
         self._image = image
@@ -195,8 +198,9 @@ def main_page() -> None:
             cross=True,
             on_mouse=mouse_handler,
         ).classes("w-[500px] bg-gray-50")
-
         state.set_interactive_image(image)
+
+        state._pagination = ui.pagination(1, 1).bind_value(state, "cur_page")
 
     state.load()
 
