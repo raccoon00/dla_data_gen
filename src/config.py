@@ -17,9 +17,17 @@ def get_env_var(var, get_path=False):
 
 
 PDF_PATH = get_env_var("DLA_GEN_DOCS_PATH", get_path=True)
+
 OUTPUT_PATH = get_env_var("DLA_GEN_OUTPUT_PATH", get_path=True)
+
 IMAGE_CACHE: Path = OUTPUT_PATH / "cache"
-IMAGE_CACHE.mkdir(parents=False, exist_ok=True)
+IMAGE_CACHE.mkdir(exist_ok=True)
+
+ELEMENTS_PATH: Path = OUTPUT_PATH / "elements"
+ELEMENTS_PATH.mkdir(exist_ok=True)
+
+ELEMENTS_GEN: Path = OUTPUT_PATH / "elem_gen"
+ELEMENTS_GEN.mkdir(exist_ok=True)
 
 RENDER_WIDTH = 1920
 RENDER_HEIGHT = 1920

@@ -1,11 +1,18 @@
+import json
 from PIL import Image
 from typing import Optional
 from pathlib import Path
 from nicegui import ui, app
+from nicegui.elements.interactive_image import InteractiveImageLayer
 from nicegui.events import MouseEventArguments, KeyEventArguments
 
 from backends.doc_ops import render_image, SUPPORTED_FILE_EXT, get_doc_pages
-from config import PDF_PATH, RENDER_HEIGHT, RENDER_WIDTH
+from config import PDF_PATH, RENDER_HEIGHT, RENDER_WIDTH, ELEMENTS_GEN
+
+
+def format_xml_props(props: dict):
+    lst = [f"{p}='{str(v)}'" for p, v in props.items()]
+    return " ".join(lst)
 
 
 class State:
@@ -84,6 +91,9 @@ class State:
         self._cur_size = self.get_image_size()
         self.add_image()
 
+        sel.reset()
+        sel.add_from_file(self._cur_image)
+
     def get_image_path(self) -> Optional[Path]:
         return self._cur_image
 
@@ -148,7 +158,83 @@ class State:
         return None, None
 
 
+class ImageSelection:
+    def __init__(self):
+        self.c1: tuple[float, float] = None
+        self.c2: tuple[float, float] = None
+
+        self.image: ui.interactive_image = None
+
+        self._cur_borders: list[InteractiveImageLayer] = []
+
+    def add_corner(self, image: Path, rel_coord: tuple[float, float]) -> None:
+        print("a")
+        if self.c1 is None:
+            self.c1 = rel_coord
+            self.c2 = None
+        else:
+            self.c2 = rel_coord
+            self._write_border(image)
+            self.c1 = None
+            self.c2 = None
+
+    def _write_border(self, image: Path, label=0):
+        self._add_border()
+
+        file = self._get_file_path(image)
+        if not file.exists():
+            bf = []
+        else:
+            with open(file, "r") as fin:
+                bf = json.load(fin)
+        bf.append(
+            {
+                "label": label,
+                "c1": self.c1,
+                "c2": self.c2,
+            }
+        )
+        with open(file, "w") as fout:
+            json.dump(bf, fout)
+
+    def add_from_file(self, image: Path):
+        pass
+
+    def _get_file_path(self, image: Path):
+        return ELEMENTS_GEN / (str(image.name) + ".json")
+
+    def _add_border(self):
+        x, y, width, height = state._get_x_y_width_height()
+        x1, y1 = self.c1
+        x2, y2 = self.c2
+
+        x1, x2 = sorted((x1, x2))
+        y1, y2 = sorted((y1, y2))
+
+        img = self.image.add_layer()
+        props = {
+            "x": x + x1 * width,
+            "y": y + y1 * height,
+            "width": (x2 - x1) * width,
+            "height": (y2 - y1) * height,
+            "fill-opacity": 0,
+            "stroke": "red",
+            "stroke-width": 5,
+        }
+        img.content = f"<rect {format_xml_props(props)}/>"
+        self._cur_borders.append(img)
+        print("b")
+
+    def reset(self):
+        self.c1 = None
+        self.c2 = None
+        for layer in self._cur_borders:
+            layer.delete()
+        self._cur_borders.clear()
+
+
 state = State()
+sel = ImageSelection()
 
 
 def handle_key(e: KeyEventArguments):
@@ -167,7 +253,8 @@ def handle_key(e: KeyEventArguments):
 
 
 def mouse_handler(event: MouseEventArguments):
-    print(state.get_rel_image_coord(event.image_x, event.image_y))
+    coords = state.get_rel_image_coord(event.image_x, event.image_y)
+    sel.add_corner(state._cur_image, coords)
 
 
 @ui.page("/")
@@ -199,8 +286,8 @@ def main_page() -> None:
             on_mouse=mouse_handler,
         ).classes("w-[500px] bg-gray-50")
         state.set_interactive_image(image)
-
         state._pagination = ui.pagination(1, 1).bind_value(state, "cur_page")
+        sel.image = image
 
     state.load()
 
