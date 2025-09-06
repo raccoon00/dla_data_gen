@@ -4,14 +4,16 @@ from pathlib import Path
 from nicegui import ui, app
 from nicegui.events import MouseEventArguments, KeyEventArguments
 
-from backends.doc_ops import render_image, SUPPORTED_FILE_EXT
+from backends.doc_ops import render_image, SUPPORTED_FILE_EXT, get_doc_pages
 from config import PDF_PATH, RENDER_HEIGHT, RENDER_WIDTH
 
 
 class State:
     def __init__(self):
         self._doc_path: Path = None
+        self._doc_len: int = None
 
+        self._cur_page: int = 1
         self._cur_image: Path = None
         self._cur_url: str = None
         self._cur_size: tuple[int, int] = None
@@ -20,8 +22,23 @@ class State:
         self._image_pos: tuple[float, float] = None
         self._image_zoom: float = None
 
+        self._page_num: ui.number = None
+
+    def update_page_set(self):
+        self._page_num.max = self._doc_len
+        self._page_num.update()
+
     def set_interactive_image(self, image):
         self._image = image
+
+    @property
+    def cur_page(self) -> int:
+        return self._cur_page
+
+    @cur_page.setter
+    def cur_page(self, page: int):
+        self._cur_page = int(page)
+        self.load_page()
 
     @property
     def doc_path(self):
@@ -37,21 +54,38 @@ class State:
             return self._doc_path.exists()
         return False
 
+    @property
+    def doc_len(self):
+        if not self.doc_exists:
+            return 0
+        return self._doc_len
+
+    @property
+    def is_loaded(self) -> bool:
+        return self._cur_image is not None and self._cur_image.exists()
+
     def load(self) -> None:
-        self._cur_image = render_image(state.doc_path, 0)
-        if not self.is_loaded():
+        if not self.doc_exists:
+            raise Exception("Cannot load document. No such file or directory.")
+        self._cur_page = 1
+        self._doc_len = get_doc_pages(self.doc_path)
+        self.update_page_set()
+
+        self.load_page()
+
+    def load_page(self) -> None:
+        self._cur_image = render_image(self.doc_path, self._cur_page - 1)
+
+        if not self.is_loaded:
             raise Exception("Unknown error while loading image")
         self._cur_size = self.get_image_size()
         self.add_image()
-
-    def is_loaded(self) -> bool:
-        return self._cur_image is not None and self._cur_image.exists()
 
     def get_image_path(self) -> Optional[Path]:
         return self._cur_image
 
     def get_image_size(self) -> tuple[int, int]:
-        if not self.is_loaded():
+        if not self.is_loaded:
             raise Exception("Tried to get the size of unloaded image.")
         img = Image.open(self._cur_image)
         size = img.size
@@ -59,7 +93,7 @@ class State:
         return size
 
     def add_image(self) -> None:
-        if not self.is_loaded():
+        if not self.is_loaded:
             return
 
         self._cur_url = f"/tmp/{self._cur_image.name}"
@@ -104,7 +138,7 @@ class State:
         self.pos_image(x + dx, y + dy, self._image_zoom * rel_zoom)
 
     def get_rel_image_coord(self, x: int, y: int) -> tuple[float, float]:
-        if self.is_loaded():
+        if self.is_loaded:
             img_x, img_y, width, height = self._get_x_y_width_height()
             return (x - img_x) / width, (y - img_y) / height
 
@@ -115,13 +149,13 @@ state = State()
 
 
 def handle_key(e: KeyEventArguments):
-    if e.key == "w" and e.action.keydown:
-        state.move_image(dy=-0.05)
     if e.key == "s" and e.action.keydown:
+        state.move_image(dy=-0.05)
+    if e.key == "w" and e.action.keydown:
         state.move_image(dy=0.05)
-    if e.key == "a" and e.action.keydown:
-        state.move_image(dx=-0.05)
     if e.key == "d" and e.action.keydown:
+        state.move_image(dx=-0.05)
+    if e.key == "a" and e.action.keydown:
         state.move_image(dx=0.05)
     if e.key == "=" and e.action.keydown:
         state.move_image(rel_zoom=1.1)
@@ -153,11 +187,15 @@ def main_page() -> None:
                 state, "doc_exists"
             )
 
+        num = ui.number("Goto Page", min=1, max=1).bind_value(state, "cur_page")
+        state._page_num = num
+
         image = ui.interactive_image(
             size=(RENDER_WIDTH, RENDER_HEIGHT),
             cross=True,
             on_mouse=mouse_handler,
-        ).classes("w-[500px] bg-gray-500")
+        ).classes("w-[500px] bg-gray-50")
+
         state.set_interactive_image(image)
 
     state.load()

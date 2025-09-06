@@ -6,6 +6,7 @@ dependencies = [
     "nicegui>=2.23.3",
     "pdfminer-six>=20250506",
     "pillow>=11.3.0",
+    "pymupdf>=1.26.4",
 ]
 
 
