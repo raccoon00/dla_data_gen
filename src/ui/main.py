@@ -168,7 +168,6 @@ class ImageSelection:
         self._cur_borders: list[InteractiveImageLayer] = []
 
     def add_corner(self, image: Path, rel_coord: tuple[float, float]) -> None:
-        print("a")
         if self.c1 is None:
             self.c1 = rel_coord
             self.c2 = None
@@ -179,14 +178,9 @@ class ImageSelection:
             self.c2 = None
 
     def _write_border(self, image: Path, label=0):
-        self._add_border()
+        self._add_border(self.c1, self.c2, label)
 
-        file = self._get_file_path(image)
-        if not file.exists():
-            bf = []
-        else:
-            with open(file, "r") as fin:
-                bf = json.load(fin)
+        bf = self._get_json(image)
         bf.append(
             {
                 "label": label,
@@ -194,19 +188,34 @@ class ImageSelection:
                 "c2": self.c2,
             }
         )
-        with open(file, "w") as fout:
-            json.dump(bf, fout)
+        self._write_json(image, bf)
 
     def add_from_file(self, image: Path):
-        pass
+        bf = self._get_json(image)
+        for b in bf:
+            self._add_border(b["c1"], b["c2"], b["label"])
+
+    def _get_json(self, image) -> dict:
+        file = self._get_file_path(image)
+        if not file.exists():
+            bf = []
+        else:
+            with open(file, "r") as fin:
+                bf = json.load(fin)
+        return bf
+
+    def _write_json(self, image: Path, bf: dict) -> None:
+        file = self._get_file_path(image)
+        with open(file, "w") as fout:
+            json.dump(bf, fout)
 
     def _get_file_path(self, image: Path):
         return ELEMENTS_GEN / (str(image.name) + ".json")
 
-    def _add_border(self):
+    def _add_border(self, c1, c2, label):
         x, y, width, height = state._get_x_y_width_height()
-        x1, y1 = self.c1
-        x2, y2 = self.c2
+        x1, y1 = c1
+        x2, y2 = c2
 
         x1, x2 = sorted((x1, x2))
         y1, y2 = sorted((y1, y2))
@@ -223,7 +232,6 @@ class ImageSelection:
         }
         img.content = f"<rect {format_xml_props(props)}/>"
         self._cur_borders.append(img)
-        print("b")
 
     def reset(self):
         self.c1 = None
